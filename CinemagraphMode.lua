@@ -1,29 +1,31 @@
-play_count_limit = 4
+-- Cinemagraph Mode by Chris Linton
+-- Extension loops a single video until the total time played passes the number
+-- set below. Meant to loop cinemagraph files while still cycling them over time.
+
+-- Total time (in seconds) to repeat each video across multiple repeats
+-- before moving to next.
+play_time_limit = 20
 
 function descriptor()
     return { title = "Cinemagraph Mode" ;
              version = "0.1" ;
              author = "Chris Linton" ;
-             capabilities = {} }
+             capabilities = {"playing-listener","meta-listener"} }
 end
 
 function activate()
-    play_count = 0
+    time_played = 0
     vlc.playlist.repeat_("on")
     vlc.playlist.loop("on")
     update_playback_mode()
 end
 
-function input_changed()
-    -- related to capabilities={"input-listener"} in descriptor()
-    -- triggered by Start/Stop media input event
-    update_playback_mode()
+function deactivate()
+    vlc.playlist.repeat_("off")
+    vlc.playlist.loop("off")
 end
 
 function meta_changed()
-    -- related to capabilities={"meta-listener"} in descriptor()
-    -- triggered by available media input meta data?
-    play_count = play_count + 1
     update_playback_mode()
 end
 
@@ -38,24 +40,18 @@ function update_playback_mode()
             local meta = item:metas()
 
             if meta then
-                vlc.msg.dbg("Playcount "..play_count.." for "..item:name().." (time played: ".. ..")")
+                time_played = time_played + (item:duration() / 12)
 
-                if play_count == 12 and previous_item ~= item:name() then vlc.playlist.repeat_("on") end
+                if previous_item ~= item:name() then 
+                    vlc.playlist.repeat_("on")
+                end
 
-                if (play_count / 12) >= play_count_limit then
+                if time_played >= play_time_limit then
                     previous_item = item:name()
                     vlc.playlist.repeat_("off")
-                    play_count = 0
+                    time_played = 0
                 end
             end
         end
     end
-end
-
-function deactivate()
-    vlc.playlist.repeat_("off")
-end
-
-function close()
-    vlc.deactivate()
 end
